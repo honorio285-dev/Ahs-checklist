@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>AHS Checklist de Veículos</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0f172a" />
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+<style>
+  :root{
+    --bg:#0f172a; --bg-soft:#141d33; --card:#1b2740; --card-border:#2a3a5c;
+    --accent:#f4a825; --accent-dark:#c9860f; --good:#2fae66; --regular:#e0a63d; --bad:#e5484d;
+    --text:#eef2f9; --text-dim:#93a1bd; --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Roboto,Arial,sans-serif;min-height:100vh;-webkit-tap-highlight-color:transparent;}
+  #root{min-height:100vh;display:flex;flex-direction:column;}
+  .app-shell{max-width:520px;margin:0 auto;width:100%;flex:1;display:flex;flex-direction:column;padding:16px 16px 40px;}
+  .app-shell.wide{max-width:1000px;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-soft);border-bottom:1px solid var(--card-border);position:sticky;top:0;z-index:20;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-badge{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent-dark));display:flex;align-items:center;justify-content:center;font-weight:800;color:#1a1204;font-size:14px;}
+  .brand-title{font-weight:700;font-size:15px;}
+  .brand-sub{font-size:11px;color:var(--text-dim);}
+  .btn{border:none;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform .08s ease, opacity .15s ease;}
+  .btn:active{transform:scale(.97);}
+  .btn-primary{background:var(--accent);color:#1a1204;}
+  .btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--card-border);}
+  .btn-ghost{background:transparent;color:var(--text-dim);border:1px solid var(--card-border);}
+  .btn-danger{background:var(--bad);color:#fff;}
+  .btn-block{width:100%;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .card{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:18px;margin-bottom:14px;}
+  .label{font-size:12px;color:var(--text-dim);margin-bottom:6px;display:block;font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+  input[type=text],input[type=number],input[type=email],input[type=password],select,textarea{width:100%;background:var(--bg-soft);border:1px solid var(--card-border);border-radius:10px;padding:12px 13px;color:var(--text);font-size:15px;margin-bottom:14px;}
+  textarea{resize:vertical;min-height:60px;}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;}
+  .hero{text-align:center;padding:26px 10px 10px;}
+  .hero h1{font-size:21px;margin:14px 0 4px;}
+  .hero p{color:var(--text-dim);font-size:13.5px;margin:0 0 22px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .status-row{display:flex;gap:8px;margin-bottom:10px;}
+  .status-opt{flex:1;text-align:center;padding:11px 4px;border-radius:10px;border:1.5px solid var(--card-border);font-size:13px;font-weight:700;cursor:pointer;background:var(--bg-soft);color:var(--text-dim);}
+  .status-opt.sel-bom{background:rgba(47,174,102,.18);border-color:var(--good);color:var(--good);}
+  .status-opt.sel-regular{background:rgba(224,166,61,.18);border-color:var(--regular);color:var(--regular);}
+  .status-opt.sel-ruim{background:rgba(229,72,77,.18);border-color:var(--bad);color:var(--bad);}
+  .item-block{border-top:1px solid var(--card-border);padding-top:14px;margin-top:14px;}
+  .item-block:first-child{border-top:none;padding-top:0;margin-top:0;}
+  .item-title{font-weight:700;font-size:14.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;}
+  .pill-bom{background:rgba(47,174,102,.18);color:var(--good);}
+  .pill-regular{background:rgba(224,166,61,.18);color:var(--regular);}
+  .pill-ruim{background:rgba(229,72,77,.18);color:var(--bad);}
+  .pill-master{background:rgba(244,168,37,.2);color:var(--accent);}
+  .pill-admin{background:rgba(120,150,255,.2);color:#9db4ff;}
+  .pill-supervisor{background:rgba(150,150,160,.2);color:var(--text-dim);}
+  .list-item{background:var(--card);border:1px solid var(--card-border);border-radius:12px;padding:13px 14px;margin-bottom:10px;cursor:pointer;}
+  .list-item:active{opacity:.85;}
+  .list-item-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .list-item-title{font-weight:700;font-size:14.5px;}
+  .list-item-meta{font-size:12px;color:var(--text-dim);}
+  .tabs{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;}
+  .tab{padding:9px 14px;border-radius:10px;font-size:13px;font-weight:600;white-space:nowrap;background:var(--card);color:var(--text-dim);border:1px solid var(--card-border);cursor:pointer;}
+  .tab.active{background:var(--accent);color:#1a1204;border-color:var(--accent);}
+  .center-box{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;text-align:center;padding:20px;}
+  .spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--card-border);border-top-color:var(--accent);animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  #qr-reader{border-radius:12px;overflow:hidden;border:1px solid var(--card-border);}
+  #qr-reader video{border-radius:12px;}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--card-border);color:var(--text);padding:12px 18px;border-radius:10px;font-size:13.5px;z-index:60;box-shadow:0 6px 20px rgba(0,0,0,.3);max-width:90%;}
+  .toast.error{border-color:var(--bad);color:#ffdada;}
+  .toast.success{border-color:var(--good);color:#d3ffe4;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(6,10,20,.72);z-index:80;display:flex;align-items:flex-end;justify-content:center;}
+  .modal-sheet{background:var(--bg-soft);border-radius:18px 18px 0 0;padding:20px;width:100%;max-width:520px;max-height:88vh;overflow-y:auto;border-top:1px solid var(--card-border);}
+  .modal-close{text-align:right;color:var(--text-dim);font-size:13px;cursor:pointer;margin-bottom:6px;}
+  a.link{color:var(--accent);text-decoration:none;}
+  .divider{height:1px;background:var(--card-border);margin:16px 0;}
+  .qr-print-card{background:#fff;color:#111;border-radius:14px;padding:18px;text-align:center;}
+  .qr-print-card h3{margin:10px 0 2px;}
+  .qr-print-card p{margin:0;color:#555;font-size:13px;}
+  .status-banner{border-radius:12px;padding:14px 16px;margin-bottom:14px;font-size:14px;}
+  .status-banner.open{background:rgba(224,166,61,.14);border:1px solid var(--regular);}
+  .status-banner.idle{background:rgba(255,255,255,.03);border:1px solid var(--card-border);color:var(--text-dim);}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
+/* ============== CONFIGURAÇÃO DO FIREBASE ============== */
+const firebaseConfig = {
+  apiKey: "AIzaSyC6h4PdDce3inhJLKZhlOj_B9PjDXjBLFo",
+  authDomain: "checklist-ahs.firebaseapp.com",
+  projectId: "checklist-ahs",
+  storageBucket: "checklist-ahs.firebasestorage.app",
+  messagingSenderId: "364089570305",
+  appId: "1:364089570305:web:1d260ebedf48a245c4bc00"
+};
+
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+/* Cria usuários sem deslogar o admin atual: usa uma instância secundária do Firebase */
+async function createUserWithoutLoggingOut(email, password) {
+  const secondaryApp = firebase.initializeApp(firebaseConfig, "Secondary_" + Date.now());
+  const secondaryAuth = secondaryApp.auth();
+  try {
+    const cred = await secondaryAuth.createUserWithEmailAndPassword(email, password);
+    const uid = cred.user.uid;
+    await secondaryAuth.signOut();
+    await secondaryApp.delete();
+    return uid;
+  } catch (e) {
+    await secondaryApp.delete();
+    throw e;
+  }
+}
+
+/* ============== Helpers ============== */
+function formatDateTime(d) {
+  return d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+function getLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) { resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  });
+}
+const ITEM_DEFS = [
+  { key: 'pneus', label: 'Pneus', icon: '🛞' },
+  { key: 'limpeza', label: 'Limpeza', icon: '🧽' },
+  { key: 'freios', label: 'Freios', icon: '🛑' },
+  { key: 'eletrica', label: 'Elétrica', icon: '🔌' },
+];
+function Toast({ toast }) {
+  if (!toast) return null;
+  return <div className={`toast ${toast.type || ''}`}>{toast.msg}</div>;
+}
+function mapsLink(loc){ return loc ? `https://www.google.com/maps?q=${loc.lat},${loc.lng}` : null; }
+
+/* ============== QR Scanner ============== */
+function QrScanner({ onResult, onCancel }) {
+  const scannerRef = useRef(null);
+  useEffect(() => {
+    const scanner = new Html5Qrcode("qr-reader");
+    scannerRef.current = scanner;
+    scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 240 },
+      (decodedText) => { scanner.stop().catch(()=>{}); onResult(decodedText); },
+      () => {}
+    ).catch(() => onCancel("Não foi possível acessar a câmera. Verifique a permissão do navegador."));
+    return () => { if (scannerRef.current) scannerRef.current.stop().catch(()=>{}); };
+  }, []);
+  return (
+    <div>
+      <div id="qr-reader" style={{width:'100%'}}></div>
+      <p style={{color:'var(--text-dim)', fontSize:13, textAlign:'center', marginTop:12}}>Aponte a câmera para o QR code do veículo</p>
+      <button className="btn btn-secondary btn-block" onClick={() => onCancel(null)}>Cancelar</button>
+    </div>
+  );
+}
+
+/* ============== LOGIN ============== */
+function LoginScreen({ showToast }) {
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    setLoading(true);
+    try {
+      await auth.signInWithEmailAndPassword(email.trim(), pass);
+    } catch (e) {
+      showToast("Login inválido: verifique e-mail e senha.", "error");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="center-box">
+      <div className="brand-badge" style={{width:64,height:64,fontSize:24,borderRadius:18}}>AHS</div>
+      <h1 style={{margin:'16px 0 4px'}}>Checklist de Veículos</h1>
+      <p style={{color:'var(--text-dim)', fontSize:13.5, marginBottom:24}}>Entre com seu e-mail e senha cadastrados</p>
+      <div className="card" style={{width:'100%'}}>
+        <span className="label">E-mail</span>
+        <input type="email" value={email} onChange={e => setEmail(e.target.value)} />
+        <span className="label">Senha</span>
+        <input type="password" value={pass} onChange={e => setPass(e.target.value)} />
+        <button className="btn btn-primary btn-block" disabled={loading} onClick={handleLogin}>
+          {loading ? 'Entrando...' : 'Entrar'}
+        </button>
+      </div>
+      <p style={{fontSize:12, color:'var(--text-dim)'}}>Não tem conta? Peça ao seu gestor para te cadastrar.</p>
+    </div>
+  );
+}
+
+/* ============== Checklist de condição (abertura / fechamento do dia) ============== */
+function DailyChecklistForm({ vehicle, tipo, onDone, onCancel, showToast, profile }) {
+  const [km, setKm] = useState("");
+  const [items, setItems] = useState(() => {
+    const obj = {};
+    ITEM_DEFS.forEach(it => obj[it.key] = { status: '', obs: '' });
+    return obj;
+  });
+  const [saving, setSaving] = useState(false);
+  const [now, setNow] = useState(new Date());
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000*30); return () => clearInterval(t); }, []);
+
+  const setItemStatus = (key, status) => setItems(prev => ({ ...prev, [key]: { ...prev[key], status } }));
+  const setItemObs = (key, obs) => setItems(prev => ({ ...prev, [key]: { ...prev[key], obs } }));
+  const allFilled = km.toString().trim() && ITEM_DEFS.every(it => items[it.key].status);
+  const hasRuim = ITEM_DEFS.some(it => items[it.key].status === 'ruim');
+
+  const handleSubmit = async () => {
+    if (!allFilled) { showToast("Preencha o KM e o estado de todos os itens.", "error"); return; }
+    setSaving(true);
+    const loc = await getLocation();
+    try {
+      await db.collection('dailyChecklists').add({
+        supervisorUid: profile.uid, supervisorName: profile.name,
+        vehicleId: vehicle.id, placa: vehicle.placa, modelo: vehicle.modelo || '',
+        tipo, km: Number(km), items, location: loc,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAtLocal: new Date().toISOString(),
+      });
+      if (tipo === 'abertura') {
+        await db.collection('sessions').doc(profile.uid).set({
+          active: true, vehicleId: vehicle.id, placa: vehicle.placa, modelo: vehicle.modelo || '',
+          startedAt: firebase.firestore.FieldValue.serverTimestamp(), openPosto: null,
+        });
+      } else {
+        await db.collection('sessions').doc(profile.uid).set({ active: false, openPosto: null }, { merge: true });
+      }
+      onDone(tipo);
+    } catch (e) {
+      showToast("Erro ao salvar: " + e.message, "error");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div>
+      <div className="card">
+        <div className="label">Veículo</div>
+        <div style={{fontSize:17, fontWeight:700}}>{vehicle.placa}</div>
+        <div style={{fontSize:13, color:'var(--text-dim)'}}>{vehicle.modelo || 'Modelo não informado'}</div>
+      </div>
+      <div className="card">
+        <span className="label">{tipo === 'abertura' ? 'Abertura do dia' : 'Fechamento do dia'}</span>
+        <div style={{marginBottom:14, fontSize:14.5}}>{formatDateTime(now)}</div>
+        <span className="label">KM {tipo === 'abertura' ? 'inicial' : 'final'}</span>
+        <input type="number" inputMode="numeric" placeholder="Ex: 45210" value={km} onChange={e => setKm(e.target.value)} />
+      </div>
+      <div className="card">
+        <span className="label" style={{marginBottom:12}}>Estado do veículo</span>
+        {ITEM_DEFS.map(it => (
+          <div className="item-block" key={it.key}>
+            <div className="item-title">{it.icon} {it.label}</div>
+            <div className="status-row">
+              <div className={`status-opt ${items[it.key].status==='bom' ? 'sel-bom' : ''}`} onClick={() => setItemStatus(it.key,'bom')}>Bom</div>
+              <div className={`status-opt ${items[it.key].status==='regular' ? 'sel-regular' : ''}`} onClick={() => setItemStatus(it.key,'regular')}>Regular</div>
+              <div className={`status-opt ${items[it.key].status==='ruim' ? 'sel-ruim' : ''}`} onClick={() => setItemStatus(it.key,'ruim')}>Ruim</div>
+            </div>
+            {items[it.key].status === 'ruim' && (
+              <textarea placeholder={`Descreva o problema em ${it.label.toLowerCase()}...`} value={items[it.key].obs} onChange={e => setItemObs(it.key, e.target.value)} />
+            )}
+          </div>
+        ))}
+      </div>
+      {hasRuim && <div className="card" style={{borderColor:'var(--bad)', background:'rgba(229,72,77,.08)'}}>⚠️ Há item(ns) marcado(s) como <b>Ruim</b>.</div>}
+      <button className="btn btn-primary btn-block" style={{marginBottom:10}} disabled={!allFilled || saving} onClick={handleSubmit}>
+        {saving ? 'Salvando...' : (tipo === 'abertura' ? 'Confirmar abertura do dia' : 'Confirmar fechamento do dia')}
+      </button>
+      <button className="btn btn-ghost btn-block" onClick={onCancel} disabled={saving}>Cancelar</button>
+    </div>
+  );
+}
+
+/* ============== Chegada em posto ============== */
+function PostoChegadaForm({ vehicle, onDone, onCancel, showToast, profile }) {
+  const [posto, setPosto] = useState("");
+  const [km, setKm] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!posto.trim() || !km.toString().trim()) { showToast("Preencha o posto e o KM de chegada.", "error"); return; }
+    setSaving(true);
+    const loc = await getLocation();
+    try {
+      const docRef = await db.collection('postos').add({
+        supervisorUid: profile.uid, supervisorName: profile.name,
+        vehicleId: vehicle.id, placa: vehicle.placa,
+        posto: posto.trim(), kmChegada: Number(km), locationChegada: loc,
+        horaChegada: firebase.firestore.FieldValue.serverTimestamp(),
+        horaChegadaLocal: new Date().toISOString(),
+        kmSaida: null, horaSaida: null, locationSaida: null, status: 'aberto',
+      });
+      await db.collection('sessions').doc(profile.uid).set({
+        openPosto: { docId: docRef.id, posto: posto.trim(), kmChegada: Number(km) }
+      }, { merge: true });
+      onDone();
+    } catch (e) {
+      showToast("Erro ao salvar: " + e.message, "error");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div>
+      <div className="card">
+        <div className="label">Veículo</div>
+        <div style={{fontSize:17, fontWeight:700}}>{vehicle.placa}</div>
+      </div>
+      <div className="card">
+        <span className="label">Chegada no posto</span>
+        <span className="label" style={{marginTop:8}}>Nome / endereço do posto</span>
+        <input type="text" placeholder="Ex: Condomínio Alfa - Bloco 2" value={posto} onChange={e => setPosto(e.target.value)} />
+        <span className="label">KM de chegada</span>
+        <input type="number" inputMode="numeric" value={km} onChange={e => setKm(e.target.value)} />
+      </div>
+      <button className="btn btn-primary btn-block" style={{marginBottom:10}} disabled={saving} onClick={handleSubmit}>
+        {saving ? 'Salvando...' : 'Confirmar chegada'}
+      </button>
+      <button className="btn btn-ghost btn-block" onClick={onCancel} disabled={saving}>Cancelar</button>
+    </div>
+  );
+}
+
+/* ============== Saída do posto ============== */
+function PostoSaidaForm({ vehicle, openPosto, onDone, onCancel, showToast, profile }) {
+  const [km, setKm] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!km.toString().trim()) { showToast("Preencha o KM de saída.", "error"); return; }
+    setSaving(true);
+    const loc = await getLocation();
+    try {
+      await db.collection('postos').doc(openPosto.docId).update({
+        kmSaida: Number(km), locationSaida: loc,
+        horaSaida: firebase.firestore.FieldValue.serverTimestamp(),
+        horaSaidaLocal: new Date().toISOString(), status: 'fechado',
+      });
+      await db.collection('sessions').doc(profile.uid).set({ openPosto: null }, { merge: true });
+      onDone();
+    } catch (e) {
+      showToast("Erro ao salvar: " + e.message, "error");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div>
+      <div className="card">
+        <div className="label">Posto aberto</div>
+        <div style={{fontSize:17, fontWeight:700}}>{openPosto.posto}</div>
+        <div style={{fontSize:13, color:'var(--text-dim)'}}>KM chegada: {openPosto.kmChegada}</div>
+      </div>
+      <div className="card">
+        <span className="label">KM de saída</span>
+        <input type="number" inputMode="numeric" value={km} onChange={e => setKm(e.target.value)} />
+      </div>
+      <button className="btn btn-primary btn-block" style={{marginBottom:10}} disabled={saving} onClick={handleSubmit}>
+        {saving ? 'Salvando...' : 'Confirmar saída do posto'}
+      </button>
+      <button className="btn btn-ghost btn-block" onClick={onCancel} disabled={saving}>Cancelar</button>
+    </div>
+  );
+}
+
+function DoneScreen({ title, onBack }) {
+  return (
+    <div className="center-box">
+      <div style={{fontSize:52, marginBottom:10}}>✅</div>
+      <h1>{title}</h1>
+      <button className="btn btn-primary btn-block" onClick={onBack}>Voltar</button>
+    </div>
+  );
+}
+
+/* ============== SUPERVISOR: meu histórico ============== */
+function MyHistoryScreen({ profile, onBack }) {
+  const [daily, setDaily] = useState([]);
+  const [postos, setPostos] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const [d1, d2] = await Promise.all([
+        db.collection('dailyChecklists').where('supervisorUid','==',profile.uid).orderBy('createdAt','desc').limit(60).get(),
+        db.collection('postos').where('supervisorUid','==',profile.uid).orderBy('horaChegada','desc').limit(120).get(),
+      ]);
+      setDaily(d1.docs.map(d => ({ id:d.id, ...d.data() })));
+      setPostos(d2.docs.map(d => ({ id:d.id, ...d.data() })));
+      setLoading(false);
+    })();
+  }, []);
+
+  const exportPDF = () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(15);
+    doc.text(`Meu histórico - ${profile.name}`, 14, 16);
+    doc.setFontSize(9); doc.setTextColor(110);
+    doc.text(`Gerado em ${formatDateTime(new Date())}`, 14, 22);
+
+    doc.autoTable({
+      startY: 28, theme: 'grid', styles:{fontSize:8.5}, headStyles:{fillColor:[15,23,42]},
+      head: [["Placa","Tipo","Data/Hora","KM","Item ruim?"]],
+      body: daily.map(it => {
+        const dt = it.createdAt ? it.createdAt.toDate() : new Date(it.createdAtLocal);
+        const hasRuim = it.items && Object.values(it.items).some(v => v.status === 'ruim');
+        return [it.placa, it.tipo === 'abertura' ? 'Abertura' : 'Fechamento', formatDateTime(dt), String(it.km), hasRuim ? 'Sim' : 'Não'];
+      })
+    });
+    doc.autoTable({
+      startY: doc.lastAutoTable.finalY + 8, theme:'grid', styles:{fontSize:8.5}, headStyles:{fillColor:[15,23,42]},
+      head: [["Posto","Chegada","KM cheg.","Saída","KM saída"]],
+      body: postos.map(p => [
+        p.posto,
+        p.horaChegada ? formatDateTime(p.horaChegada.toDate()) : '-',
+        String(p.kmChegada),
+        p.horaSaida ? formatDateTime(p.horaSaida.toDate()) : 'Em aberto',
+        p.kmSaida != null ? String(p.kmSaida) : '-',
+      ])
+    });
+    doc.save(`meu_historico_${new Date().toISOString().slice(0,10)}.pdf`);
+  };
+
+  return (
+    <div>
+      <div className="topbar" style={{margin:'-16px -16px 16px'}}>
+        <div className="brand"><span onClick={onBack} style={{cursor:'pointer', fontSize:20}}>←</span><div className="brand-title">Meu histórico</div></div>
+      </div>
+      {loading ? <div className="spinner" style={{margin:'20px auto'}}></div> : (
+        <>
+          <button className="btn btn-secondary btn-block" style={{marginBottom:16}} onClick={exportPDF}>📄 Baixar meu histórico em PDF</button>
+          <div className="label">Aberturas / fechamentos</div>
+          {daily.map(it => {
+            const dt = it.createdAt ? it.createdAt.toDate() : new Date(it.createdAtLocal);
+            return <div className="list-item" key={it.id}>
+              <div className="list-item-top"><span className="list-item-title">{it.placa}</span><span className={`pill pill-${it.tipo==='abertura'?'regular':'bom'}`}>{it.tipo === 'abertura' ? 'Abertura' : 'Fechamento'}</span></div>
+              <div className="list-item-meta">{formatDateTime(dt)} · {it.km} km</div>
+            </div>;
+          })}
+          <div className="divider"></div>
+          <div className="label">Postos visitados</div>
+          {postos.map(p => (
+            <div className="list-item" key={p.id}>
+              <div className="list-item-top"><span className="list-item-title">{p.posto}</span><span className={`pill ${p.status==='aberto'?'pill-regular':'pill-bom'}`}>{p.status==='aberto'?'Em aberto':'Fechado'}</span></div>
+              <div className="list-item-meta">
+                Chegada: {p.horaChegada ? formatDateTime(p.horaChegada.toDate()) : '-'} ({p.kmChegada} km)<br/>
+                Saída: {p.horaSaida ? formatDateTime(p.horaSaida.toDate()) : '—'} {p.kmSaida != null ? `(${p.kmSaida} km)` : ''}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ============== FLUXO DO SUPERVISOR ============== */
+function SupervisorApp({ profile, onLogout, showToast }) {
+  const [session, setSession] = useState(undefined); // undefined = loading
+  const [step, setStep] = useState('home'); // home, scan, form, myHistory
+  const [vehicle, setVehicle] = useState(null);
+  const [pendingAction, setPendingAction] = useState(null); // 'abertura' | 'chegadaPosto' | 'saidaPosto'
+
+  const loadSession = async () => {
+    const doc = await db.collection('sessions').doc(profile.uid).get();
+    setSession(doc.exists ? doc.data() : { active: false, openPosto: null });
+  };
+  useEffect(() => { loadSession(); }, []);
+
+  const loadVehicleByPlate = async (plate) => {
+    const snap = await db.collection('vehicles').where('placa','==',plate.toUpperCase()).limit(1).get();
+    if (snap.empty) { showToast("Veículo não encontrado. Confira com o gestor.", "error"); return null; }
+    const doc = snap.docs[0];
+    return { id: doc.id, ...doc.data() };
+  };
+
+  const handleScanResult = async (text) => {
+    let plate = text.trim();
+    if (plate.includes(':')) plate = plate.split(':').pop().trim();
+    const v = await loadVehicleByPlate(plate);
+    if (!v) { setStep('home'); return; }
+
+    if (!session.active) {
+      setVehicle(v); setPendingAction('abertura'); setStep('form'); return;
+    }
+    if (session.vehicleId !== v.id) {
+      showToast("Você já iniciou o dia com outro veículo. Finalize o dia atual antes de trocar.", "error");
+      setStep('home'); return;
+    }
+    if (!session.openPosto) {
+      setVehicle(v); setPendingAction('chegadaPosto'); setStep('form'); return;
+    }
+    setVehicle(v); setPendingAction('saidaPosto'); setStep('form');
+  };
+
+  const handleFinalizarDia = async () => {
+    const v = { id: session.vehicleId, placa: session.placa, modelo: session.modelo };
+    setVehicle(v); setPendingAction('fechamento'); setStep('form');
+  };
+
+  if (session === undefined) return <div className="center-box"><div className="spinner"></div></div>;
+  if (step === 'myHistory') return <MyHistoryScreen profile={profile} onBack={() => setStep('home')} />;
+  if (step === 'scan') return <QrScanner onResult={handleScanResult} onCancel={(err) => { if (err) showToast(err,'error'); setStep('home'); }} />;
+
+  if (step === 'form') {
+    const cancel = () => setStep('home');
+    const doneAndReload = async (msg) => { await loadSession(); setStep('home'); showToast(msg, 'success'); };
+    if (pendingAction === 'abertura') return <DailyChecklistForm vehicle={vehicle} tipo="abertura" profile={profile} showToast={showToast} onCancel={cancel} onDone={() => doneAndReload('Dia iniciado!')} />;
+    if (pendingAction === 'fechamento') return <DailyChecklistForm vehicle={vehicle} tipo="fechamento" profile={profile} showToast={showToast} onCancel={cancel} onDone={() => doneAndReload('Dia finalizado!')} />;
+    if (pendingAction === 'chegadaPosto') return <PostoChegadaForm vehicle={vehicle} profile={profile} showToast={showToast} onCancel={cancel} onDone={() => doneAndReload('Chegada no posto registrada!')} />;
+    if (pendingAction === 'saidaPosto') return <PostoSaidaForm vehicle={vehicle} openPosto={session.openPosto} profile={profile} showToast={showToast} onCancel={cancel} onDone={() => doneAndReload('Saída do posto registrada!')} />;
+  }
+
+  return (
+    <div>
+      <div className="topbar" style={{margin:'-16px -16px 16px'}}>
+        <div className="brand">
+          <div className="brand-badge">AHS</div>
+          <div><div className="brand-title">{profile.name}</div><div className="brand-sub">Supervisor</div></div>
+        </div>
+        <span onClick={onLogout} style={{fontSize:13, color:'var(--text-dim)', cursor:'pointer'}}>Sair</span>
+      </div>
+
+      {!session.active && (
+        <div className="status-banner idle">Você ainda não iniciou o dia. Escaneie o QR do veículo para começar.</div>
+      )}
+      {session.active && !session.openPosto && (
+        <div className="status-banner idle">Dia em andamento com o veículo <b>{session.placa}</b>. Nenhum posto aberto no momento.</div>
+      )}
+      {session.active && session.openPosto && (
+        <div className="status-banner open">Posto aberto: <b>{session.openPosto.posto}</b> (KM chegada: {session.openPosto.kmChegada}). Escaneie o QR ao sair.</div>
+      )}
+
+      <button className="btn btn-primary btn-block" style={{marginBottom:12}} onClick={() => setStep('scan')}>
+        📷 {!session.active ? 'Escanear QR para iniciar o dia' : session.openPosto ? 'Escanear QR para sair do posto' : 'Escanear QR ao chegar no posto'}
+      </button>
+
+      {session.active && !session.openPosto && (
+        <button className="btn btn-secondary btn-block" style={{marginBottom:12}} onClick={handleFinalizarDia}>
+          🏁 Finalizar dia (chegada final)
+        </button>
+      )}
+
+      <button className="btn btn-ghost btn-block" onClick={() => setStep('myHistory')}>📄 Meu histórico</button>
+    </div>
+  );
+}
+
+/* ============== ADMIN: Usuários ============== */
+function UsersTab({ profile, showToast }) {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [pass, setPass] = useState("");
+  const [role, setRole] = useState("supervisor");
+  const [creating, setCreating] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const snap = await db.collection('users').orderBy('createdAt','desc').get();
+    setUsers(snap.docs.map(d => ({ id:d.id, ...d.data() })));
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    if (!name.trim() || !email.trim() || pass.length < 6) {
+      showToast("Preencha nome, e-mail e uma senha com 6+ caracteres.", "error"); return;
+    }
+    setCreating(true);
+    try {
+      const uid = await createUserWithoutLoggingOut(email.trim(), pass);
+      await db.collection('users').doc(uid).set({
+        name: name.trim(), email: email.trim(), role,
+        createdBy: profile.uid, createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      showToast("Usuário criado!", "success");
+      setName(""); setEmail(""); setPass(""); setRole("supervisor"); setShowAdd(false);
+      load();
+    } catch (e) {
+      showToast("Erro: " + e.message, "error");
+    }
+    setCreating(false);
+  };
+
+  const handleRemove = async (userId) => {
+    if (!confirm("Remover o acesso deste usuário ao app? (o login continua existindo no Firebase Authentication)")) return;
+    await db.collection('users').doc(userId).delete();
+    load();
+  };
+
+  return (
+    <div>
+      {!showAdd ? (
+        <button className="btn btn-primary btn-block" style={{marginBottom:16}} onClick={() => setShowAdd(true)}>+ Cadastrar usuário</button>
+      ) : (
+        <div className="card">
+          <span className="label">Nome completo</span>
+          <input type="text" value={name} onChange={e => setName(e.target.value)} />
+          <span className="label">E-mail</span>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} />
+          <span className="label">Senha (mín. 6 caracteres)</span>
+          <input type="password" value={pass} onChange={e => setPass(e.target.value)} />
+          <span className="label">Perfil</span>
+          <select value={role} onChange={e => setRole(e.target.value)}>
+            <option value="supervisor">Supervisor</option>
+            {profile.role === 'master' && <option value="admin">Administrador</option>}
+          </select>
+          <div className="grid2">
+            <button className="btn btn-ghost" onClick={() => setShowAdd(false)} disabled={creating}>Cancelar</button>
+            <button className="btn btn-primary" onClick={handleCreate} disabled={creating}>{creating ? 'Criando...' : 'Salvar'}</button>
+          </div>
+        </div>
+      )}
+      {loading ? <div className="spinner" style={{margin:'20px auto'}}></div> : users.map(u => (
+        <div className="list-item" key={u.id}>
+          <div className="list-item-top">
+            <span className="list-item-title">{u.name}</span>
+            <span className={`pill pill-${u.role}`}>{u.role === 'master' ? 'Master' : u.role === 'admin' ? 'Admin' : 'Supervisor'}</span>
+          </div>
+          <div className="list-item-meta">{u.email}</div>
+          {u.role !== 'master' && u.id !== profile.uid && (
+            <div style={{marginTop:8}}>
+              <span onClick={() => handleRemove(u.id)} style={{color:'var(--bad)', fontSize:13, cursor:'pointer'}}>Remover acesso</span>
+            </div>
+          )}
+        </div>
+      ))}
+      <p style={{fontSize:12, color:'var(--text-dim)', marginTop:6}}>
+        Só o Master pode cadastrar outro Administrador. Supervisores podem ser cadastrados por Admin ou Master.
+      </p>
+    </div>
+  );
+}
+
+/* ============== ADMIN: Veículos ============== */
+function VehicleQrModal({ vehicle, onClose }) {
+  const qrRef = useRef(null);
+  useEffect(() => {
+    if (qrRef.current) { qrRef.current.innerHTML = ""; new QRCode(qrRef.current, { text: vehicle.placa, width: 200, height: 200 }); }
+  }, [vehicle]);
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+        <div className="modal-close" onClick={onClose}>Fechar ✕</div>
+        <div className="qr-print-card">
+          <div ref={qrRef} style={{display:'flex', justifyContent:'center'}}></div>
+          <h3>{vehicle.placa}</h3>
+          <p>{vehicle.modelo}</p>
+          <p style={{marginTop:6}}>AHS Security · Checklist de Veículo</p>
+        </div>
+        <p style={{fontSize:12.5, color:'var(--text-dim)', textAlign:'center', marginTop:14}}>Imprima e cole este QR code de forma visível dentro do veículo.</p>
+      </div>
+    </div>
+  );
+}
+function VehiclesTab({ showToast }) {
+  const [vehicles, setVehicles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [placa, setPlaca] = useState(""); const [modelo, setModelo] = useState("");
+  const [qrVehicle, setQrVehicle] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    const snap = await db.collection('vehicles').orderBy('placa').get();
+    setVehicles(snap.docs.map(d => ({ id:d.id, ...d.data() })));
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const handleAdd = async () => {
+    if (!placa.trim()) return;
+    try {
+      await db.collection('vehicles').add({ placa: placa.trim().toUpperCase(), modelo: modelo.trim() });
+      setPlaca(""); setModelo(""); setShowAdd(false);
+      showToast("Veículo cadastrado!", "success"); load();
+    } catch (e) { showToast("Erro: " + e.message, "error"); }
+  };
+  const handleDelete = async (id) => {
+    if (!confirm("Remover este veículo?")) return;
+    await db.collection('vehicles').doc(id).delete(); load();
+  };
+
+  return (
+    <div>
+      {!showAdd ? (
+        <button className="btn btn-primary btn-block" style={{marginBottom:16}} onClick={() => setShowAdd(true)}>+ Cadastrar veículo</button>
+      ) : (
+        <div className="card">
+          <span className="label">Placa</span>
+          <input type="text" value={placa} onChange={e => setPlaca(e.target.value.toUpperCase())} placeholder="ABC1D23" />
+          <span className="label">Modelo</span>
+          <input type="text" value={modelo} onChange={e => setModelo(e.target.value)} placeholder="Ex: Renault Sandero" />
+          <div className="grid2">
+            <button className="btn btn-ghost" onClick={() => setShowAdd(false)}>Cancelar</button>
+            <button className="btn btn-primary" onClick={handleAdd}>Salvar</button>
+          </div>
+        </div>
+      )}
+      {loading ? <div className="spinner" style={{margin:'20px auto'}}></div> : vehicles.length === 0 ?
+        <p style={{color:'var(--text-dim)', textAlign:'center'}}>Nenhum veículo cadastrado ainda.</p> :
+        vehicles.map(v => (
+          <div className="list-item" key={v.id}>
+            <div className="list-item-top">
+              <span className="list-item-title">{v.placa}</span>
+              <span onClick={() => handleDelete(v.id)} style={{color:'var(--bad)', fontSize:13, cursor:'pointer'}}>Remover</span>
+            </div>
+            <div className="list-item-meta">{v.modelo || 'Sem modelo informado'}</div>
+            <div style={{marginTop:8}}>
+              <button className="btn btn-secondary" style={{padding:'8px 12px', fontSize:13}} onClick={() => setQrVehicle(v)}>🔳 Ver / imprimir QR code</button>
+            </div>
+          </div>
+        ))
+      }
+      {qrVehicle && <VehicleQrModal vehicle={qrVehicle} onClose={() => setQrVehicle(null)} />}
+    </div>
+  );
+}
+
+/* ============== ADMIN: Histórico geral ============== */
+function AdminHistoryTab() {
+  const [daily, setDaily] = useState([]);
+  const [postos, setPostos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState('postos');
+  const [filterPlaca, setFilterPlaca] = useState("");
+  const [filterSupervisor, setFilterSupervisor] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    const [d1, d2] = await Promise.all([
+      db.collection('dailyChecklists').orderBy('createdAt','desc').limit(300).get(),
+      db.collection('postos').orderBy('horaChegada','desc').limit(300).get(),
+    ]);
+    setDaily(d1.docs.map(d => ({ id:d.id, ...d.data() })));
+    setPostos(d2.docs.map(d => ({ id:d.id, ...d.data() })));
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const filteredDaily = daily.filter(it =>
+    (!filterPlaca || it.placa.toUpperCase().includes(filterPlaca.toUpperCase())) &&
+    (!filterSupervisor || (it.supervisorName||'').toLowerCase().includes(filterSupervisor.toLowerCase())));
+  const filteredPostos = postos.filter(it =>
+    (!filterPlaca || it.placa.toUpperCase().includes(filterPlaca.toUpperCase())) &&
+    (!filterSupervisor || (it.supervisorName||'').toLowerCase().includes(filterSupervisor.toLowerCase())));
+
+  const exportExcel = () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filteredDaily.map(it => {
+      const dt = it.createdAt ? it.createdAt.toDate() : new Date(it.createdAtLocal);
+      return { Supervisor: it.supervisorName, Placa: it.placa, Tipo: it.tipo, DataHora: formatDateTime(dt), KM: it.km };
+    })), "Abertura-Fechamento");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filteredPostos.map(p => ({
+      Supervisor: p.supervisorName, Placa: p.placa, Posto: p.posto,
+      Chegada: p.horaChegada ? formatDateTime(p.horaChegada.toDate()) : '-', KMChegada: p.kmChegada,
+      Saida: p.horaSaida ? formatDateTime(p.horaSaida.toDate()) : 'Em aberto', KMSaida: p.kmSaida,
+    }))), "Postos");
+    XLSX.writeFile(wb, `historico_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  const exportPDF = () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(15); doc.text("AHS Security - Histórico de Veículos", 14, 16);
+    doc.autoTable({
+      startY: 24, theme:'grid', styles:{fontSize:8}, headStyles:{fillColor:[15,23,42]},
+      head:[["Supervisor","Placa","Posto","Chegada","KM ch.","Saída","KM saída"]],
+      body: filteredPostos.map(p => [
+        p.supervisorName, p.placa, p.posto,
+        p.horaChegada ? formatDateTime(p.horaChegada.toDate()) : '-', String(p.kmChegada),
+        p.horaSaida ? formatDateTime(p.horaSaida.toDate()) : 'Em aberto', p.kmSaida != null ? String(p.kmSaida) : '-',
+      ])
+    });
+    doc.save(`historico_postos_${new Date().toISOString().slice(0,10)}.pdf`);
+  };
+
+  return (
+    <div>
+      <div className="card">
+        <span className="label">Filtrar por placa</span>
+        <input type="text" value={filterPlaca} onChange={e => setFilterPlaca(e.target.value)} placeholder="Placa" />
+        <span className="label">Filtrar por supervisor</span>
+        <input type="text" value={filterSupervisor} onChange={e => setFilterSupervisor(e.target.value)} placeholder="Nome do supervisor" />
+        <div className="grid2">
+          <button className="btn btn-secondary" onClick={exportExcel}>📊 Excel</button>
+          <button className="btn btn-secondary" onClick={exportPDF}>📄 PDF</button>
+        </div>
+      </div>
+      <div className="tabs">
+        <div className={`tab ${view==='postos'?'active':''}`} onClick={() => setView('postos')}>Postos ({filteredPostos.length})</div>
+        <div className={`tab ${view==='dia'?'active':''}`} onClick={() => setView('dia')}>Abertura/Fechamento ({filteredDaily.length})</div>
+      </div>
+      {loading ? <div className="spinner" style={{margin:'20px auto'}}></div> : view === 'postos' ? (
+        filteredPostos.length === 0 ? <p style={{color:'var(--text-dim)', textAlign:'center'}}>Nenhum registro.</p> :
+        filteredPostos.map(p => (
+          <div className="list-item" key={p.id}>
+            <div className="list-item-top">
+              <span className="list-item-title">{p.posto}</span>
+              <span className={`pill ${p.status==='aberto'?'pill-regular':'pill-bom'}`}>{p.status==='aberto'?'Em aberto':'Fechado'}</span>
+            </div>
+            <div className="list-item-meta">
+              {p.supervisorName} · {p.placa}<br/>
+              Chegada: {p.horaChegada ? formatDateTime(p.horaChegada.toDate()) : '-'} ({p.kmChegada} km)
+              {p.horaSaida && <> · Saída: {formatDateTime(p.horaSaida.toDate())} ({p.kmSaida} km)</>}
+            </div>
+          </div>
+        ))
+      ) : (
+        filteredDaily.length === 0 ? <p style={{color:'var(--text-dim)', textAlign:'center'}}>Nenhum registro.</p> :
+        filteredDaily.map(it => {
+          const dt = it.createdAt ? it.createdAt.toDate() : new Date(it.createdAtLocal);
+          const hasRuim = it.items && Object.values(it.items).some(v => v.status === 'ruim');
+          return (
+            <div className="list-item" key={it.id}>
+              <div className="list-item-top">
+                <span className="list-item-title">{it.placa} {hasRuim && '⚠️'}</span>
+                <span className={`pill pill-${it.tipo==='abertura'?'regular':'bom'}`}>{it.tipo === 'abertura' ? 'Abertura' : 'Fechamento'}</span>
+              </div>
+              <div className="list-item-meta">{it.supervisorName} · {formatDateTime(dt)} · {it.km} km</div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+/* ============== ADMIN: painel principal ============== */
+function AdminApp({ profile, onLogout }) {
+  const [tab, setTab] = useState('historico');
+  const [toast, setToast] = useState(null);
+  const showToast = (msg, type) => { setToast({ msg, type }); setTimeout(() => setToast(null), 3500); };
+
+  return (
+    <div>
+      <div className="topbar" style={{margin:'-16px -16px 16px'}}>
+        <div className="brand">
+          <div className="brand-badge">AHS</div>
+          <div><div className="brand-title">{profile.name}</div><div className="brand-sub">{profile.role === 'master' ? 'Master' : 'Administrador'}</div></div>
+        </div>
+        <span onClick={onLogout} style={{fontSize:13, color:'var(--text-dim)', cursor:'pointer'}}>Sair</span>
+      </div>
+      <div className="tabs">
+        <div className={`tab ${tab==='historico'?'active':''}`} onClick={() => setTab('historico')}>Histórico</div>
+        <div className={`tab ${tab==='veiculos'?'active':''}`} onClick={() => setTab('veiculos')}>Veículos</div>
+        <div className={`tab ${tab==='usuarios'?'active':''}`} onClick={() => setTab('usuarios')}>Usuários</div>
+      </div>
+      {tab === 'historico' && <AdminHistoryTab />}
+      {tab === 'veiculos' && <VehiclesTab showToast={showToast} />}
+      {tab === 'usuarios' && <UsersTab profile={profile} showToast={showToast} />}
+      <Toast toast={toast} />
+    </div>
+  );
+}
+
+/* ============== APP RAIZ ============== */
+function App() {
+  const [authUser, setAuthUser] = useState(undefined); // undefined = carregando
+  const [profile, setProfile] = useState(undefined);
+  const [toast, setToast] = useState(null);
+  const showToast = (msg, type) => { setToast({ msg, type }); setTimeout(() => setToast(null), 3500); };
+
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged(async (user) => {
+      setAuthUser(user);
+      if (!user) { setProfile(null); return; }
+      const doc = await db.collection('users').doc(user.uid).get();
+      if (doc.exists) {
+        setProfile({ uid: user.uid, ...doc.data() });
+        return;
+      }
+      // Bootstrap: se ainda não existe nenhum "master", este primeiro login se torna o master
+      const mastersSnap = await db.collection('users').where('role','==','master').limit(1).get();
+      if (mastersSnap.empty) {
+        const newProfile = { name: user.email.split('@')[0], email: user.email, role: 'master', createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+        await db.collection('users').doc(user.uid).set(newProfile);
+        setProfile({ uid: user.uid, ...newProfile });
+      } else {
+        setProfile('no_access');
+      }
+    });
+    return unsub;
+  }, []);
+
+  const handleLogout = () => auth.signOut();
+
+  if (authUser === undefined || profile === undefined) return <div className="app-shell"><div className="center-box"><div className="spinner"></div></div></div>;
+
+  if (!authUser) return <div className="app-shell"><LoginScreen showToast={showToast} /><Toast toast={toast} /></div>;
+
+  if (profile === 'no_access') {
+    return (
+      <div className="app-shell">
+        <div className="center-box">
+          <h1>Acesso não configurado</h1>
+          <p style={{color:'var(--text-dim)', fontSize:14}}>Sua conta existe, mas ainda não tem um perfil neste app. Peça ao gestor para te cadastrar dentro do painel de usuários.</p>
+          <button className="btn btn-secondary btn-block" onClick={handleLogout}>Sair</button>
+        </div>
+      </div>
+    );
+  }
+
+  const isAdminRole = profile.role === 'master' || profile.role === 'admin';
+
+  return (
+    <div className={`app-shell ${isAdminRole ? 'wide' : ''}`}>
+      {isAdminRole ? <AdminApp profile={profile} onLogout={handleLogout} /> : <SupervisorApp profile={profile} onLogout={handleLogout} showToast={showToast} />}
+      <Toast toast={toast} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
