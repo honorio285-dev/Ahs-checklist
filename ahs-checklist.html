@@ -799,7 +799,13 @@ function AdminHistoryTab() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filteredDaily.map(it => {
       const dt = it.createdAt ? it.createdAt.toDate() : new Date(it.createdAtLocal);
-      return { Supervisor: it.supervisorName, Placa: it.placa, Tipo: it.tipo, DataHora: formatDateTime(dt), KM: it.km };
+      const row = { Supervisor: it.supervisorName, Placa: it.placa, Tipo: it.tipo, DataHora: formatDateTime(dt), KM: it.km };
+      ITEM_DEFS.forEach(def => {
+        const d = it.items ? it.items[def.key] : null;
+        row[def.label] = d ? d.status : '';
+        row[def.label + ' - Obs'] = d ? d.obs : '';
+      });
+      return row;
     })), "Abertura-Fechamento");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filteredPostos.map(p => ({
       Supervisor: p.supervisorName, Placa: p.placa, Posto: p.posto,
@@ -821,6 +827,20 @@ function AdminHistoryTab() {
         p.horaChegada ? formatDateTime(p.horaChegada.toDate()) : '-', String(p.kmChegada),
         p.horaSaida ? formatDateTime(p.horaSaida.toDate()) : 'Em aberto', p.kmSaida != null ? String(p.kmSaida) : '-',
       ])
+    });
+    doc.setFontSize(12);
+    doc.text("Abertura / Fechamento (estado do veículo)", 14, doc.lastAutoTable.finalY + 10);
+    doc.autoTable({
+      startY: doc.lastAutoTable.finalY + 14, theme:'grid', styles:{fontSize:7.5}, headStyles:{fillColor:[15,23,42]},
+      head:[["Supervisor","Placa","Tipo","Data/Hora","KM","Pneus","Limpeza","Freios","Elétrica"]],
+      body: filteredDaily.map(it => {
+        const dt = it.createdAt ? it.createdAt.toDate() : new Date(it.createdAtLocal);
+        const st = (key) => it.items && it.items[key] ? it.items[key].status : '-';
+        return [
+          it.supervisorName, it.placa, it.tipo === 'abertura' ? 'Abertura' : 'Fechamento',
+          formatDateTime(dt), String(it.km), st('pneus'), st('limpeza'), st('freios'), st('eletrica'),
+        ];
+      })
     });
     doc.save(`historico_postos_${new Date().toISOString().slice(0,10)}.pdf`);
   };
@@ -868,6 +888,15 @@ function AdminHistoryTab() {
                 <span className={`pill pill-${it.tipo==='abertura'?'regular':'bom'}`}>{it.tipo === 'abertura' ? 'Abertura' : 'Fechamento'}</span>
               </div>
               <div className="list-item-meta">{it.supervisorName} · {formatDateTime(dt)} · {it.km} km</div>
+              {it.items && (
+                <div style={{display:'flex', flexWrap:'wrap', gap:6, marginTop:8}}>
+                  {ITEM_DEFS.map(def => {
+                    const d = it.items[def.key];
+                    if (!d || !d.status) return null;
+                    return <span key={def.key} className={`pill pill-${d.status}`}>{def.icon} {def.label}: {d.status}</span>;
+                  })}
+                </div>
+              )}
             </div>
           );
         })
