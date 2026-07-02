@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Teste 2</title>
+<style>
+  body { background:#0f172a; color:#fff; font-family:sans-serif; padding:20px; font-size:14px; }
+  #log div { padding:8px; margin-bottom:6px; border-radius:6px; }
+  .ok { background:#14532d; }
+  .fail { background:#7f1d1d; }
+  .pending { background:#374151; }
+</style>
+</head>
+<body>
+<h2>Teste de carregamento</h2>
+<div id="log"></div>
+<script>
+  const log = document.getElementById('log');
+  function addLine(id, text, cls) {
+    let el = document.getElementById(id);
+    if (!el) { el = document.createElement('div'); el.id = id; log.appendChild(el); }
+    el.className = cls;
+    el.textContent = text;
+  }
+  const scripts = [
+    { id: 'react', url: 'https://unpkg.com/react@18/umd/react.production.min.js' },
+    { id: 'reactdom', url: 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js' },
+    { id: 'babel', url: 'https://unpkg.com/@babel/standalone/babel.min.js' },
+    { id: 'firebaseapp', url: 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js' },
+    { id: 'firebaseauth', url: 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js' },
+    { id: 'firebasefirestore', url: 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js' },
+  ];
+  scripts.forEach(s => addLine(s.id, '⏳ carregando: ' + s.id, 'pending'));
+
+  scripts.forEach(s => {
+    const tag = document.createElement('script');
+    tag.src = s.url;
+    tag.onload = () => addLine(s.id, '✅ OK: ' + s.id, 'ok');
+    tag.onerror = () => addLine(s.id, '❌ FALHOU: ' + s.id + ' (' + s.url + ')', 'fail');
+    document.head.appendChild(tag);
+  });
+
+  window.addEventListener('error', function(e) {
+    const div = document.createElement('div');
+    div.className = 'fail';
+    div.textContent = 'ERRO JS: ' + (e.message || '(erro de recurso)') + ' | arquivo: ' + (e.filename || (e.target && e.target.src) || '?');
+    log.appendChild(div);
+  }, true);
+</script>
+</body>
+</html>
