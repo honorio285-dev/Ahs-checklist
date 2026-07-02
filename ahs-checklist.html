@@ -768,7 +768,7 @@ function VehiclesTab({ showToast }) {
 }
 
 /* ============== ADMIN: Histórico geral ============== */
-function AdminHistoryTab() {
+function AdminHistoryTab({ isMaster }) {
   const [daily, setDaily] = useState([]);
   const [postos, setPostos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -787,6 +787,17 @@ function AdminHistoryTab() {
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
+
+  const handleDeleteDaily = async (id) => {
+    if (!confirm("Excluir este registro de abertura/fechamento? Essa ação não pode ser desfeita.")) return;
+    await db.collection('dailyChecklists').doc(id).delete();
+    setDaily(prev => prev.filter(it => it.id !== id));
+  };
+  const handleDeletePosto = async (id) => {
+    if (!confirm("Excluir este registro de posto? Essa ação não pode ser desfeita.")) return;
+    await db.collection('postos').doc(id).delete();
+    setPostos(prev => prev.filter(it => it.id !== id));
+  };
 
   const filteredDaily = daily.filter(it =>
     (!filterPlaca || it.placa.toUpperCase().includes(filterPlaca.toUpperCase())) &&
@@ -867,7 +878,10 @@ function AdminHistoryTab() {
           <div className="list-item" key={p.id}>
             <div className="list-item-top">
               <span className="list-item-title">{p.posto}</span>
-              <span className={`pill ${p.status==='aberto'?'pill-regular':'pill-bom'}`}>{p.status==='aberto'?'Em aberto':'Fechado'}</span>
+              <div style={{display:'flex', alignItems:'center', gap:10}}>
+                <span className={`pill ${p.status==='aberto'?'pill-regular':'pill-bom'}`}>{p.status==='aberto'?'Em aberto':'Fechado'}</span>
+                {isMaster && <span onClick={() => handleDeletePosto(p.id)} style={{color:'var(--bad)', fontSize:16, cursor:'pointer'}}>🗑️</span>}
+              </div>
             </div>
             <div className="list-item-meta">
               {p.supervisorName} · {p.placa}<br/>
@@ -885,7 +899,10 @@ function AdminHistoryTab() {
             <div className="list-item" key={it.id}>
               <div className="list-item-top">
                 <span className="list-item-title">{it.placa} {hasRuim && '⚠️'}</span>
-                <span className={`pill pill-${it.tipo==='abertura'?'regular':'bom'}`}>{it.tipo === 'abertura' ? 'Abertura' : 'Fechamento'}</span>
+                <div style={{display:'flex', alignItems:'center', gap:10}}>
+                  <span className={`pill pill-${it.tipo==='abertura'?'regular':'bom'}`}>{it.tipo === 'abertura' ? 'Abertura' : 'Fechamento'}</span>
+                  {isMaster && <span onClick={() => handleDeleteDaily(it.id)} style={{color:'var(--bad)', fontSize:16, cursor:'pointer'}}>🗑️</span>}
+                </div>
               </div>
               <div className="list-item-meta">{it.supervisorName} · {formatDateTime(dt)} · {it.km} km</div>
               {it.items && (
@@ -925,7 +942,7 @@ function AdminApp({ profile, onLogout }) {
         <div className={`tab ${tab==='veiculos'?'active':''}`} onClick={() => setTab('veiculos')}>Veículos</div>
         <div className={`tab ${tab==='usuarios'?'active':''}`} onClick={() => setTab('usuarios')}>Usuários</div>
       </div>
-      {tab === 'historico' && <AdminHistoryTab />}
+      {tab === 'historico' && <AdminHistoryTab isMaster={profile.role === 'master'} />}
       {tab === 'veiculos' && <VehiclesTab showToast={showToast} />}
       {tab === 'usuarios' && <UsersTab profile={profile} showToast={showToast} />}
       <Toast toast={toast} />
