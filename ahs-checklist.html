@@ -172,16 +172,26 @@ function mapsLink(loc){ return loc ? `https://www.google.com/maps?q=${loc.lat},$
 /* ============== QR Scanner ============== */
 function QrScanner({ onResult, onCancel }) {
   const scannerRef = useRef(null);
+  const stoppedRef = useRef(false);
+  const safeStop = (scanner) => {
+    if (stoppedRef.current || !scanner) return;
+    stoppedRef.current = true;
+    try {
+      const p = scanner.stop();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch (e) { /* já parado, ignora */ }
+  };
   useEffect(() => {
     const scanner = new Html5Qrcode("qr-reader");
     scannerRef.current = scanner;
+    stoppedRef.current = false;
     scanner.start(
       { facingMode: "environment" },
       { fps: 10, qrbox: 240 },
-      (decodedText) => { scanner.stop().catch(()=>{}); onResult(decodedText); },
+      (decodedText) => { safeStop(scanner); onResult(decodedText); },
       () => {}
     ).catch(() => onCancel("Não foi possível acessar a câmera. Verifique a permissão do navegador."));
-    return () => { if (scannerRef.current) scannerRef.current.stop().catch(()=>{}); };
+    return () => { safeStop(scannerRef.current); };
   }, []);
   return (
     <div>
