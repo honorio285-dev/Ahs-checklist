@@ -101,6 +101,14 @@
 </head>
 <body>
 <div id="root"></div>
+<div id="error-catcher" style="display:none; position:fixed; inset:0; background:#1a0505; color:#ffb4b4; font-family:monospace; font-size:13px; padding:16px; z-index:9999; overflow:auto; white-space:pre-wrap;"></div>
+<script>
+  window.addEventListener('error', function(e) {
+    var box = document.getElementById('error-catcher');
+    box.style.display = 'block';
+    box.textContent = 'ERRO CAPTURADO:\n\n' + (e.message || '') + '\n\nArquivo: ' + (e.filename || '') + '\nLinha: ' + (e.lineno || '') + ' Coluna: ' + (e.colno || '') + '\n\n' + (e.error && e.error.stack ? e.error.stack : '');
+  });
+</script>
 
 <script type="text/babel" data-presets="react">
 const { useState, useEffect, useRef } = React;
