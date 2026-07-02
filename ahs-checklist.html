@@ -904,6 +904,7 @@ function App() {
   useEffect(() => {
     const unsub = auth.onAuthStateChanged(async (user) => {
       setAuthUser(user);
+      setProfile(undefined);
       if (!user) { setProfile(null); return; }
       const doc = await db.collection('users').doc(user.uid).get();
       if (doc.exists) {
@@ -927,7 +928,7 @@ function App() {
 
   if (authUser === undefined || profile === undefined) return <div className="app-shell"><div className="center-box"><div className="spinner"></div></div></div>;
 
-  if (!authUser) return <div className="app-shell"><LoginScreen showToast={showToast} /><Toast toast={toast} /></div>;
+  if (!authUser || profile === null) return <div className="app-shell"><LoginScreen showToast={showToast} /><Toast toast={toast} /></div>;
 
   if (profile === 'no_access') {
     return (
